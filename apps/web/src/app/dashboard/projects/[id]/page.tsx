@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import { useAuth } from '@/lib/auth-context'
 
 interface Category {
   id: string
@@ -27,7 +27,7 @@ interface Project {
 export default function ProjectPage() {
   const router = useRouter()
   const { id } = useParams() as { id: string }
-  const [token, setToken] = useState<string | null>(null)
+  const { token } = useAuth()
   const [project, setProject] = useState<Project | null>(null)
   const [showCatForm, setShowCatForm] = useState(false)
   const [catName, setCatName] = useState('')
@@ -36,14 +36,7 @@ export default function ProjectPage() {
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) { router.push('/login'); return }
-      setToken(data.session.access_token)
-    })
-  }, [router])
-
-  useEffect(() => { if (token) fetchProject() }, [token])
+  useEffect(() => { if (token) fetchProject() }, [token, id])
 
   async function fetchProject() {
     const res = await fetch(`/api/projects/${id}`, { headers: { Authorization: `Bearer ${token}` } })
@@ -62,8 +55,7 @@ export default function ProjectPage() {
     })
     setCreating(false)
     setShowCatForm(false)
-    setCatName('')
-    setCatDesc('')
+    setCatName(''); setCatDesc('')
     fetchProject()
   }
 
@@ -71,8 +63,7 @@ export default function ProjectPage() {
     if (!token) return
     setGeneratingPdf(true)
     const res = await fetch(`/api/projects/${id}/generate-pdf`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      method: 'POST', headers: { Authorization: `Bearer ${token}` },
     })
     const data = await res.json()
     if (data.pdfUrl) setPdfUrl(data.pdfUrl)
@@ -96,15 +87,11 @@ export default function ProjectPage() {
           <h1 className="text-3xl font-bold">{project.name}</h1>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             {project.productora && <span className="text-gray-500 text-sm">{project.productora}</span>}
-            {project.status && (
-              <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700">{project.status}</span>
-            )}
+            {project.status && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700">{project.status}</span>}
           </div>
           {(project.startDate || project.endDate) && (
             <p className="text-gray-600 text-xs mt-1">
-              {project.startDate ? new Date(project.startDate).toLocaleDateString() : '?'}
-              {' → '}
-              {project.endDate ? new Date(project.endDate).toLocaleDateString() : '?'}
+              {project.startDate ? new Date(project.startDate).toLocaleDateString() : '?'} → {project.endDate ? new Date(project.endDate).toLocaleDateString() : '?'}
             </p>
           )}
           {project.description && <p className="text-gray-400 mt-2 text-sm">{project.description}</p>}
@@ -118,7 +105,7 @@ export default function ProjectPage() {
           )}
           <button onClick={generateProjectPdf} disabled={generatingPdf}
             className="px-4 py-2 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-200 disabled:opacity-50 text-sm transition">
-            {generatingPdf ? 'Generating...' : 'Generate Project PDF'}
+            {generatingPdf ? 'Generating...' : 'Generate PDF'}
           </button>
           <Link href={`/dashboard/images?projectId=${id}`}
             className="px-4 py-2 rounded-lg border border-gray-700 hover:border-gray-500 text-sm transition">
@@ -180,8 +167,7 @@ function CategoryCard({ cat, projectId, token, onRefresh }: { cat: Category; pro
   async function generateCategoryPdf() {
     setGenerating(true)
     const res = await fetch(`/api/categories/${cat.id}/generate-pdf`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      method: 'POST', headers: { Authorization: `Bearer ${token}` },
     })
     const data = await res.json()
     if (data.pdfUrl) setPdfUrl(data.pdfUrl)

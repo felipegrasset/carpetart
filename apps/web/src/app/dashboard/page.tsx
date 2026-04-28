@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useAuth } from '@/lib/auth-context'
 
 interface Project {
   id: string
@@ -18,7 +18,7 @@ interface Project {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const [token, setToken] = useState<string | null>(null)
+  const { token } = useAuth()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -29,17 +29,10 @@ export default function DashboardPage() {
   const [newEndDate, setNewEndDate] = useState('')
   const [newStatus, setNewStatus] = useState('')
   const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) { router.push('/login'); return }
-      setToken(data.session.access_token)
-    })
-  }, [router])
-
-  useEffect(() => {
-    if (!token) return
-    fetchProjects()
+    if (token) fetchProjects()
   }, [token])
 
   async function fetchProjects() {
@@ -53,6 +46,7 @@ export default function DashboardPage() {
     e.preventDefault()
     if (!newName.trim() || !token) return
     setCreating(true)
+    setCreateError(null)
     const res = await fetch('/api/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -67,17 +61,11 @@ export default function DashboardPage() {
     })
     const data = await res.json()
     setCreating(false)
+    if (!res.ok) { setCreateError(data.error || 'Failed to create project'); return }
     setShowForm(false)
-    setNewName('')
-    setNewDesc('')
-    setNewProductora('')
-    setNewStartDate('')
-    setNewEndDate('')
-    setNewStatus('')
-    if (data.project) router.push(`/dashboard/projects/${data.project.id}`)
+    setNewName(''); setNewDesc(''); setNewProductora(''); setNewStartDate(''); setNewEndDate(''); setNewStatus('')
+    router.push(`/dashboard/projects/${data.project.id}`)
   }
-
-  if (!token) return <div className="flex items-center justify-center min-h-screen text-gray-400">Loading...</div>
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
@@ -90,10 +78,8 @@ export default function DashboardPage() {
           <Link href="/dashboard/images" className="px-4 py-2 rounded-lg border border-gray-700 hover:border-gray-500 text-sm transition">
             All Images
           </Link>
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-5 py-2 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-200 transition text-sm"
-          >
+          <button onClick={() => setShowForm(true)}
+            className="px-5 py-2 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-200 transition text-sm">
             + New Project
           </button>
         </div>
@@ -109,11 +95,8 @@ export default function DashboardPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {projects.map((p) => (
-            <Link
-              key={p.id}
-              href={`/dashboard/projects/${p.id}`}
-              className="block p-5 rounded-xl border border-gray-800 hover:border-gray-600 bg-gray-900 transition"
-            >
+            <Link key={p.id} href={`/dashboard/projects/${p.id}`}
+              className="block p-5 rounded-xl border border-gray-800 hover:border-gray-600 bg-gray-900 transition">
               <h2 className="font-semibold text-lg leading-tight">{p.name}</h2>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {p.productora && <span className="text-gray-500 text-xs">{p.productora}</span>}
@@ -121,9 +104,7 @@ export default function DashboardPage() {
               </div>
               {(p.startDate || p.endDate) && (
                 <p className="text-gray-600 text-xs mt-1">
-                  {p.startDate ? new Date(p.startDate).toLocaleDateString() : '?'}
-                  {' → '}
-                  {p.endDate ? new Date(p.endDate).toLocaleDateString() : '?'}
+                  {p.startDate ? new Date(p.startDate).toLocaleDateString() : '?'} → {p.endDate ? new Date(p.endDate).toLocaleDateString() : '?'}
                 </p>
               )}
               {p.description && <p className="text-gray-400 text-sm mt-1 line-clamp-2">{p.description}</p>}
@@ -138,22 +119,17 @@ export default function DashboardPage() {
           <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-md border border-gray-700">
             <h2 className="text-xl font-bold mb-6">New Project</h2>
             <form onSubmit={createProject} className="flex flex-col gap-4">
-              <input
-                type="text" placeholder="Project name *" value={newName}
+              <input type="text" placeholder="Project name *" value={newName}
                 onChange={(e) => setNewName(e.target.value)} required autoFocus
                 className="px-4 py-3 rounded-lg bg-gray-800 border border-gray-700 focus:outline-none focus:border-gray-400"
               />
               <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="text" placeholder="Production company" value={newProductora}
+                <input type="text" placeholder="Production company" value={newProductora}
                   onChange={(e) => setNewProductora(e.target.value)}
                   className="px-4 py-3 rounded-lg bg-gray-800 border border-gray-700 focus:outline-none focus:border-gray-400 text-sm"
                 />
-                <select
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value)}
-                  className="px-4 py-3 rounded-lg bg-gray-800 border border-gray-700 focus:outline-none focus:border-gray-400 text-sm text-gray-300"
-                >
+                <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)}
+                  className="px-4 py-3 rounded-lg bg-gray-800 border border-gray-700 focus:outline-none focus:border-gray-400 text-sm text-gray-300">
                   <option value="">Status (optional)</option>
                   <option value="desarrollo">Desarrollo</option>
                   <option value="preproduccion">Preproducción</option>
@@ -174,16 +150,15 @@ export default function DashboardPage() {
                     className="px-3 py-2.5 rounded-lg bg-gray-800 border border-gray-700 focus:outline-none focus:border-gray-400 text-sm" />
                 </div>
               </div>
-              <textarea
-                placeholder="Description (optional)" value={newDesc}
+              <textarea placeholder="Description (optional)" value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)} rows={2}
                 className="px-4 py-3 rounded-lg bg-gray-800 border border-gray-700 focus:outline-none focus:border-gray-400 resize-none"
               />
+              {createError && <p className="text-red-400 text-sm">{createError}</p>}
               <div className="flex gap-3 justify-end">
                 <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-gray-400 hover:text-white">Cancel</button>
                 <button type="submit" disabled={creating}
-                  className="px-5 py-2 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-200 disabled:opacity-50 transition"
-                >
+                  className="px-5 py-2 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-200 disabled:opacity-50 transition">
                   {creating ? 'Creating...' : 'Create'}
                 </button>
               </div>

@@ -1,8 +1,8 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import { useAuth } from '@/lib/auth-context'
 import AddImagePanel from '@/components/AddImagePanel'
 
 interface Project { id: string; name: string }
@@ -19,13 +19,12 @@ interface Image {
 }
 
 function ImagesPageInner() {
-  const router = useRouter()
   const params = useSearchParams()
   const initProject = params.get('projectId') || ''
   const initCategory = params.get('categoryId') || ''
   const initAdd = params.get('add') === '1'
 
-  const [token, setToken] = useState<string | null>(null)
+  const { token } = useAuth()
   const [projects, setProjects] = useState<Project[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [images, setImages] = useState<Image[]>([])
@@ -39,21 +38,13 @@ function ImagesPageInner() {
   const [pdfTitle, setPdfTitle] = useState('Custom Selection')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) { router.push('/login'); return }
-      setToken(data.session.access_token)
-    })
-  }, [router])
-
   useEffect(() => { if (token) { fetchProjects(); fetchCategories() } }, [token])
   useEffect(() => { if (token) fetchImages() }, [token, filterProject, filterCategory])
 
-  // When project filter changes, reset category filter and refetch categories
   useEffect(() => {
-    if (!filterProject) return
+    if (!filterProject || !token) return
     setFilterCategory('')
-    if (token) fetchCategories(filterProject)
+    fetchCategories(filterProject)
   }, [filterProject])
 
   async function fetchProjects() {
@@ -82,11 +73,7 @@ function ImagesPageInner() {
   }
 
   function toggleSelect(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
+    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   }
 
   function toggleSelectAll() {
@@ -118,28 +105,21 @@ function ImagesPageInner() {
     fetchImages()
   }
 
-  const filtered = images.filter((img) => {
-    if (filterStatus && img.status !== filterStatus) return false
-    return true
-  })
-
+  const filtered = images.filter((img) => !filterStatus || img.status === filterStatus)
   const visibleIds = filtered.map((i) => i.id)
   const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id))
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-bold">Images</h1>
           <p className="text-gray-400 text-sm mt-1">{images.length} total · {filtered.length} shown · {selected.size} selected</p>
         </div>
-        <div className="flex gap-3">
-          <button onClick={() => { setShowAdd(true); setPdfUrl(null) }}
-            className="px-5 py-2 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-200 text-sm transition">
-            + Add Image
-          </button>
-        </div>
+        <button onClick={() => { setShowAdd(true); setPdfUrl(null) }}
+          className="px-5 py-2 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-200 text-sm transition">
+          + Add Image
+        </button>
       </div>
 
       {/* Filters */}
@@ -170,18 +150,17 @@ function ImagesPageInner() {
         )}
       </div>
 
-      {/* Selection actions bar */}
+      {/* Selection bar */}
       {selected.size > 0 && (
         <div className="flex items-center gap-4 mb-4 px-4 py-3 bg-gray-800 rounded-xl border border-gray-700 flex-wrap">
           <span className="text-sm font-medium">{selected.size} selected</span>
-          <input
-            type="text" value={pdfTitle} onChange={(e) => setPdfTitle(e.target.value)}
+          <input type="text" value={pdfTitle} onChange={(e) => setPdfTitle(e.target.value)}
             placeholder="PDF title"
             className="flex-1 min-w-[160px] px-3 py-1.5 rounded-lg bg-gray-700 border border-gray-600 text-sm focus:outline-none"
           />
           <button onClick={generateSelectionPdf} disabled={generatingPdf}
             className="px-4 py-2 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-200 disabled:opacity-50 text-sm transition">
-            {generatingPdf ? 'Generating PDF...' : 'Generate PDF from selection'}
+            {generatingPdf ? 'Generating...' : 'Generate PDF'}
           </button>
           {pdfUrl && (
             <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
@@ -204,8 +183,7 @@ function ImagesPageInner() {
             <thead className="bg-gray-900 text-gray-400 border-b border-gray-800">
               <tr>
                 <th className="px-4 py-3 text-left w-10">
-                  <input type="checkbox" checked={allSelected} onChange={toggleSelectAll}
-                    className="rounded bg-gray-700 border-gray-600 cursor-pointer" />
+                  <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="cursor-pointer" />
                 </th>
                 <th className="px-4 py-3 text-left w-16">Preview</th>
                 <th className="px-4 py-3 text-left">Description</th>
@@ -217,25 +195,18 @@ function ImagesPageInner() {
             </thead>
             <tbody className="divide-y divide-gray-800">
               {filtered.map((img) => (
-                <ImageRow
-                  key={img.id}
-                  img={img}
-                  selected={selected.has(img.id)}
-                  onToggle={() => toggleSelect(img.id)}
-                  onDelete={() => deleteImage(img.id)}
-                  token={token!}
-                  onUpdated={fetchImages}
-                />
+                <ImageRow key={img.id} img={img} selected={selected.has(img.id)}
+                  onToggle={() => toggleSelect(img.id)} onDelete={() => deleteImage(img.id)}
+                  token={token!} onUpdated={fetchImages} />
               ))}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* Add Image panel */}
-      {showAdd && (
+      {showAdd && token && (
         <AddImagePanel
-          token={token!}
+          token={token}
           projects={projects}
           categories={categories}
           defaultCategoryId={filterCategory}
@@ -266,33 +237,26 @@ function ImageRow({ img, selected, onToggle, onDelete, token, onUpdated }: {
   }
 
   const statusColors: Record<string, string> = {
-    pending: 'text-gray-400',
-    downloading: 'text-yellow-400',
-    stored: 'text-green-400',
-    error: 'text-red-400',
+    pending: 'text-gray-400', downloading: 'text-yellow-400', stored: 'text-green-400', error: 'text-red-400',
   }
 
   return (
     <tr className={`hover:bg-gray-900/50 transition ${selected ? 'bg-gray-900/70' : ''}`}>
       <td className="px-4 py-3">
-        <input type="checkbox" checked={selected} onChange={onToggle}
-          className="rounded bg-gray-700 border-gray-600 cursor-pointer" />
+        <input type="checkbox" checked={selected} onChange={onToggle} className="cursor-pointer" />
       </td>
       <td className="px-4 py-3">
-        {img.storedUrl ? (
+        {img.storedUrl
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={img.storedUrl} alt="" className="w-12 h-12 object-cover rounded" />
-        ) : (
-          <div className="w-12 h-12 rounded bg-gray-800 flex items-center justify-center text-gray-600 text-xs">
-            {img.status === 'error' ? '!' : '…'}
-          </div>
-        )}
+          ? <img src={img.storedUrl} alt="" className="w-12 h-12 object-cover rounded" />
+          : <div className="w-12 h-12 rounded bg-gray-800 flex items-center justify-center text-gray-600 text-xs">{img.status === 'error' ? '!' : '…'}</div>
+        }
       </td>
       <td className="px-4 py-3 max-w-[200px]">
         {editing ? (
           <div className="flex gap-2 items-center">
-            <input type="text" value={desc} onChange={(e) => setDesc(e.target.value)}
-              autoFocus onKeyDown={(e) => { if (e.key === 'Enter') saveDesc(); if (e.key === 'Escape') setEditing(false) }}
+            <input type="text" value={desc} onChange={(e) => setDesc(e.target.value)} autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter') saveDesc(); if (e.key === 'Escape') setEditing(false) }}
               className="flex-1 px-2 py-1 rounded bg-gray-700 border border-gray-600 text-sm focus:outline-none"
             />
             <button onClick={saveDesc} className="text-green-400 text-xs">Save</button>
@@ -300,9 +264,10 @@ function ImageRow({ img, selected, onToggle, onDelete, token, onUpdated }: {
           </div>
         ) : (
           <button onClick={() => setEditing(true)} className="text-left w-full group">
-            <span className="text-gray-300 group-hover:text-white">
-              {img.description || <span className="text-gray-600 italic">Add description…</span>}
-            </span>
+            {img.description
+              ? <span className="text-gray-300 group-hover:text-white">{img.description}</span>
+              : <span className="text-gray-600 italic group-hover:text-gray-400">Add description…</span>
+            }
           </button>
         )}
       </td>
@@ -310,18 +275,11 @@ function ImageRow({ img, selected, onToggle, onDelete, token, onUpdated }: {
       <td className="px-4 py-3 text-gray-300 whitespace-nowrap">{img.category.name}</td>
       <td className="px-4 py-3">
         <span className={`font-medium ${statusColors[img.status] || 'text-gray-400'}`}>{img.status}</span>
-        {img.status === 'error' && (
-          <a href={img.sourceUrl} target="_blank" rel="noopener noreferrer"
-            className="block text-xs text-gray-600 hover:text-gray-400 truncate max-w-[140px]" title={img.sourceUrl}>
-            {img.sourceUrl}
-          </a>
-        )}
       </td>
       <td className="px-4 py-3">
         <div className="flex gap-2">
           {img.storedUrl && (
-            <a href={img.storedUrl} target="_blank" rel="noopener noreferrer"
-              className="text-gray-500 hover:text-white text-xs">View</a>
+            <a href={img.storedUrl} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white text-xs">View</a>
           )}
           <button onClick={onDelete} className="text-gray-600 hover:text-red-400 text-xs">Delete</button>
         </div>

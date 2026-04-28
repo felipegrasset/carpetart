@@ -1,20 +1,20 @@
 'use client'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth-context'
 
 export default function LandingPage() {
   const router = useRouter()
+  const { session, loading } = useAuth()
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        router.replace('/dashboard')
-      } else {
-        router.replace('/login')
-      }
-    })
-  }, [router])
+    if (loading) return
+    if (session) {
+      router.replace('/dashboard')
+    } else {
+      router.replace('/login')
+    }
+  }, [session, loading, router])
 
   return null
 }

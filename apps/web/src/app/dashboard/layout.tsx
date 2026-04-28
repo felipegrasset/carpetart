@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth-context'
 
 interface Project {
   id: string
@@ -21,17 +22,16 @@ const STATUS_COLORS: Record<string, string> = {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const { token, session, loading } = useAuth()
   const [projects, setProjects] = useState<Project[]>([])
-  const [token, setToken] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState(false)
 
+  // Redirect to login if no session
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) return
-      setToken(data.session.access_token)
-    })
-  }, [])
+    if (!loading && !session) router.replace('/login')
+  }, [loading, session, router])
 
+  // Load projects for sidebar
   useEffect(() => {
     if (!token) return
     fetch('/api/projects', { headers: { Authorization: `Bearer ${token}` } })
@@ -41,11 +41,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   async function signOut() {
     await supabase.auth.signOut()
-    router.push('/login')
+    router.replace('/login')
   }
 
   const navLink = (href: string, label: string, icon: string) => {
-    const active = pathname === href || pathname.startsWith(href + '/')
+    const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
     return (
       <Link
         href={href}
@@ -57,6 +57,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </Link>
     )
   }
+
+  if (loading || !session) return null
 
   return (
     <div className="flex min-h-screen bg-gray-950">
