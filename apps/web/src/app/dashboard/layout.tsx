@@ -86,6 +86,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <nav className="flex flex-col gap-1 px-2 py-4">
           {navLink('/dashboard', 'Projects', '◫')}
           {navLink('/dashboard/images', 'All Images', '▦')}
+          {navLink('/dashboard/categories', 'Categorías', '❏')}
+          {navLink('/dashboard/productoras', 'Productoras', '◈')}
         </nav>
 
         {/* Projects list */}
