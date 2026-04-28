@@ -1,79 +1,90 @@
-# CarpetArt — Roadmap
+# ROADMAP — CarpetArt
 
-## ✅ Phase 1 — Core (current sprint)
+## Hoy (MVP funcional)
 
-### Data model
-- [x] `Project` (name*, productora?, duracion?, description?)
-- [x] `Category` (name*, description?, belongs to Project)
-- [x] `Image` (sourceUrl*, description?, belongs to Category)
+### Fix & Infrastructure
+- [x] Schema Prisma limpio: Project (name, productora?, startDate?, endDate?, status?) > Category > Image (description?)
+- [x] Fix POST /api/projects — campos opcionales correctamente mapeados al schema
+- [x] Sidebar de navegación con lista de proyectos coloreada por estado
+- [x] Dashboard layout persistente (sidebar colapsable)
 
-### Projects
-- [x] List projects on dashboard
-- [x] Create project (name + productora + duracion + description)
-- [x] Delete project (cascades to categories + images)
-- [x] Project detail page (categories grid)
-
-### Categories
-- [x] Create category inside a project
-- [x] Delete category (cascades to images)
-- [x] Generate PDF per category
-
-### Images
-- [x] Add image via URL → downloaded to Supabase Storage asynchronously
-- [x] Optional description per image (editable inline in table)
-- [x] Global images table with filters: project, category, status
-- [x] Multi-select rows → generate PDF from selection
-- [x] Delete image (removes from storage)
-- [x] `AddImagePanel` drawer with inline category creation
-
-### PDF generation (`pdf-lib`)
-- [x] Cover page (dark, title + subtitle + image count)
-- [x] Images grouped by category with section headers
-- [x] 2-column grid layout per page, A4
-- [x] Optional caption under each image
-- [x] Upload to Supabase Storage → returns public URL
-- [x] Generate from: single category / full project / custom multi-selection
+### Core features
+- [x] Form para agregar imagen: URL + categoría + proyecto + descripción opcional
+- [x] UI para crear proyectos (con productora, fechas, estado)
+- [x] UI para crear categorías (dentro de un proyecto)
+- [x] Vista de lista de imágenes filtrable por proyecto / categoría / status
+- [x] Descripción opcional en imagen (editable inline en la tabla)
+- [x] Generar PDF por proyecto (todas las categorías, agrupadas)
+- [x] Generar PDF por categoría
+- [x] Generar PDF por selección múltiple en tabla de imágenes
 
 ---
 
-## 🔜 Phase 2 — Polish & UX
+## Próxima iteración
 
-- [ ] Project edit form (update name / productora / duracion / description)
-- [ ] Category edit (rename, change description)
-- [ ] Image drag-and-drop reorder (`sortOrder`)
-- [ ] Image gallery view (lightbox) in addition to table
-- [ ] Bulk delete selected images
-- [ ] PDF: choose cover color / layout (1-col vs 2-col)
-- [ ] PDF status polling (currently synchronous, slow for large sets)
-- [ ] Toast notifications (success / error feedback)
-- [ ] Loading skeletons instead of spinner text
+### UX inmediato
+- [ ] Drag & drop para reordenar imágenes dentro de una categoría (dnd-kit ya instalado)
+- [ ] Preview de imagen en modal al hacer click en thumbnail
+- [ ] Preview del PDF en iframe antes de descargar
+- [ ] Edición inline de nombre de proyecto / categoría (sin modal)
+- [ ] Toast notifications en lugar de alertas del browser
 
----
+### Imágenes
+- [ ] Bulk import: pegar múltiples URLs separadas por salto de línea
+- [ ] Auto-refresh de status (polling cada 3s mientras hay imágenes en pending/downloading)
+- [ ] Mover imagen entre categorías
 
-## 🔜 Phase 3 — Collaboration & Sharing
+### PDF
+- [ ] Personalizar layout: 1, 2 o 3 columnas
+- [ ] Incluir metadata del proyecto en la portada (productora, fechas, estado)
+- [ ] Opción de incluir/excluir descripción de cada imagen
+- [ ] Historial de PDFs generados
 
-- [ ] Shareable PDF link (public, time-limited token)
-- [ ] Export as ZIP (original images + PDF)
-- [ ] Project collaborators (invite by email, read-only vs edit)
-- [ ] Comment / annotation per image
-
----
-
-## 🔜 Phase 4 — Mailing (Resend — ready to integrate)
-
-> Backend skeleton already ready (`RESEND_API_KEY` env var reserved).
-
-- [ ] Email on PDF ready: "Your PDF for _Project X_ is ready → Download"
-- [ ] Invite collaborator by email
-- [ ] Weekly digest (optional): projects updated this week
-- [ ] Transactional: account confirmation on sign-up
+### Proyectos
+- [ ] Editar proyecto (campos opcionales) sin borrar y recrear
+- [ ] Archivar proyecto
+- [ ] Duplicar estructura de proyecto
 
 ---
 
-## 🔜 Phase 5 — Advanced
+## Futuro
 
-- [ ] AI auto-tagging: send image to Vision API → suggest category + description
-- [ ] Duplicate detection (perceptual hash)
-- [ ] Import from Pinterest board URL (bulk add)
-- [ ] Mood board canvas (free-form arrange images)
-- [ ] Export to Notion / Google Slides
+### Mailing con Resend (ya planificado, no implementado)
+- [ ] Email cuando el PDF está listo (link de descarga)
+- [ ] Invitar colaboradores a un proyecto
+- [ ] Email con PDF adjunto
+
+### Colaboración
+- [ ] Proyectos compartidos con roles (Owner / Editor / Viewer)
+- [ ] Comentarios en imágenes
+
+### Integraciones
+- [ ] Import desde Pinterest (board público)
+- [ ] Import desde Are.na
+- [ ] Export a Google Drive / Dropbox
+
+### Performance
+- [ ] Resize automático al descargar (max 2000px)
+- [ ] CDN cache para imágenes
+
+---
+
+## Comandos clave
+
+```bash
+# Tras cambiar schema.prisma — SIEMPRE hacer esto:
+pnpm db:push       # aplica el schema a Supabase
+pnpm db:generate   # regenera el Prisma client
+
+# Deploy
+git push origin main   # Vercel auto-deploys
+```
+
+### Variables de entorno en Vercel
+```
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+DATABASE_URL
+DIRECT_URL
+```

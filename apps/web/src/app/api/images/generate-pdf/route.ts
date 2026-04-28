@@ -16,10 +16,7 @@ export async function POST(request: NextRequest) {
   const images = await prisma.image.findMany({
     where: { id: { in: imageIds }, userId: user.id, status: 'stored' },
     orderBy: { sortOrder: 'asc' },
-    include: { 
-      category: { select: { name: true } },
-      folder: { select: { name: true } }
-    },
+    include: { category: { select: { name: true } } },
   })
 
   if (images.length === 0) {
@@ -29,10 +26,7 @@ export async function POST(request: NextRequest) {
   try {
     const pdfUrl = await generatePdfFromImages({
       title: title || 'Custom Selection',
-      images: images.map((img) => ({ 
-        ...img, 
-        categoryName: img.category?.name || img.folder?.name || 'Uncategorized' 
-      })),
+      images: images.map((img) => ({ ...img, categoryName: img.category.name })),
       userId: user.id,
       pdfId: `selection-${user.id}-${Date.now()}`,
     })
