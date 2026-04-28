@@ -21,18 +21,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ projects })
   } catch (err) {
     console.error('GET /api/projects error:', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error', details: String(err) }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('POST /api/projects started')
+    
     const user = await getAuthUser(request)
+    console.log('Authenticated user:', user?.id)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { name, description, productora, startDate, endDate, status } = await request.json()
+    const body = await request.json()
+    console.log('Request body:', { name: body.name, hasDesc: !!body.description })
+    
+    const { name, description, productora, startDate, endDate, status } = body
     if (!name?.trim()) return NextResponse.json({ error: 'name is required' }, { status: 400 })
 
+    console.log('Creating project:', name)
     const project = await prisma.project.create({
       data: {
         name: name.trim(),
@@ -44,10 +51,14 @@ export async function POST(request: NextRequest) {
         userId: user.id,
       },
     })
+    console.log('Project created:', project.id)
 
     return NextResponse.json({ project }, { status: 201 })
-  } catch (err) {
+  } catch (err: any) {
     console.error('POST /api/projects error:', err)
-    return NextResponse.json({ error: 'Failed to create project' }, { status: 500 })
+    return NextResponse.json({ 
+      error: 'Failed to create project',
+      details: err.message || String(err)
+    }, { status: 500 })
   }
 }
