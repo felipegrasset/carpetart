@@ -15,5 +15,18 @@ export async function getAuthUser(request: NextRequest) {
   const { data: { user: sbUser }, error } = await supabase.auth.getUser(token)
   if (error || !sbUser) return null
 
-  return prisma.user.findUnique({ where: { supabaseId: sbUser.id } })
+  let user = await prisma.user.findUnique({ where: { supabaseId: sbUser.id } })
+  
+  // Auto-create user if doesn't exist
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        supabaseId: sbUser.id,
+        email: sbUser.email || '',
+        name: sbUser.user_metadata?.name || sbUser.email?.split('@')[0] || 'User',
+      },
+    })
+  }
+  
+  return user
 }

@@ -3,41 +3,51 @@ import { getAuthUser } from '@/lib/api-helpers/auth'
 import { prisma } from '@carpetart/database'
 
 export async function GET(request: NextRequest) {
-  const user = await getAuthUser(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  try {
+    const user = await getAuthUser(request)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const projects = await prisma.project.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: 'desc' },
-    include: {
-      _count: { select: { categories: true } },
-      categories: {
-        select: { _count: { select: { images: true } } },
+    const projects = await prisma.project.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: { select: { categories: true } },
+        categories: {
+          select: { _count: { select: { images: true } } },
+        },
       },
-    },
-  })
+    })
 
-  return NextResponse.json({ projects })
+    return NextResponse.json({ projects })
+  } catch (err) {
+    console.error('GET /api/projects error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }
 
 export async function POST(request: NextRequest) {
-  const user = await getAuthUser(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  try {
+    const user = await getAuthUser(request)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { name, description, productora, startDate, endDate, status } = await request.json()
-  if (!name?.trim()) return NextResponse.json({ error: 'name is required' }, { status: 400 })
+    const { name, description, productora, startDate, endDate, status } = await request.json()
+    if (!name?.trim()) return NextResponse.json({ error: 'name is required' }, { status: 400 })
 
-  const project = await prisma.project.create({
-    data: {
-      name: name.trim(),
-      description: description?.trim() || null,
-      productora: productora?.trim() || null,
-      startDate: startDate ? new Date(startDate) : null,
-      endDate: endDate ? new Date(endDate) : null,
-      status: status?.trim() || null,
-      userId: user.id,
-    },
-  })
+    const project = await prisma.project.create({
+      data: {
+        name: name.trim(),
+        description: description?.trim() || null,
+        productora: productora?.trim() || null,
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+        status: status?.trim() || null,
+        userId: user.id,
+      },
+    })
 
-  return NextResponse.json({ project }, { status: 201 })
+    return NextResponse.json({ project }, { status: 201 })
+  } catch (err) {
+    console.error('POST /api/projects error:', err)
+    return NextResponse.json({ error: 'Failed to create project' }, { status: 500 })
+  }
 }
