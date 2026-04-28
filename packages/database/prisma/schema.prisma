@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  supabaseId String   @unique
+  name       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  projects   Project[]
+  categories Category[]
+  images     Image[]
+}
+
+// Project — top-level grouping (e.g. "Film Noir Short")
+model Project {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  productora  String?                    // optional production company
+  startDate   DateTime?                  // optional shoot / production start
+  endDate     DateTime?                  // optional shoot / production end
+  status      String?                    // e.g. "desarrollo", "preproduccion", "rodaje", "postpro", "entregado"
+  userId      String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories Category[]
+}
+
+// Category — concept inside a project (e.g. "Lighting", "Wardrobe")
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  projectId   String
+  userId      String
+  pdfUrl      String?
+  pdfName     String?
+  pdfStatus   String   @default("none") // none | generating | ready | error
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+  images  Image[]
+}
+
+// Image — single reference image, belongs to a Category
+model Image {
+  id          String   @id @default(uuid())
+  sourceUrl   String
+  storedUrl   String?
+  fileName    String?
+  mimeType    String?
+  sizeBytes   Int?
+  sortOrder   Int      @default(0)
+  description String?                    // optional user annotation
+  status      String   @default("pending") // pending | downloading | stored | error
+  errorMsg    String?
+  categoryId  String
+  userId      String
+  createdAt   DateTime @default(now())
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+}
