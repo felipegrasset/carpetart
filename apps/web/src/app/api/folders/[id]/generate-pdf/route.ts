@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/api-helpers/auth'
 import { prisma } from '@carpetart/database'
-import { generateFolderPdf } from '@/lib/pdf-generator'
+import { generatePdfFromImages } from '@/lib/pdf-generator'
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const user = await getAuthUser(request)
@@ -20,7 +20,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   await prisma.folder.update({ where: { id: params.id }, data: { status: 'generating' } })
 
   try {
-    const pdfUrl = await generateFolderPdf(folder, user.id)
+    const pdfUrl = await generatePdfFromImages({
+      title: folder.name,
+      images: folder.images.map((img) => ({ ...img, categoryName: 'Folder' })),
+      userId: user.id,
+      pdfId: `folder-${folder.id}`,
+    })
     await prisma.folder.update({
       where: { id: params.id },
       data: { status: 'ready', pdfUrl, pdfName: `${folder.name}.pdf` },
